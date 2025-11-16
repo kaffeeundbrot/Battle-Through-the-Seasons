@@ -12,7 +12,7 @@ const int WINDOW_WIDTH = 900;
 const int WINDOW_HEIGHT = 600;
 
 // Seasons: 0=spring,1=summer,2=autumn,3=winter
-int currentSeason = 3;
+int currentSeason = 0;
 
 // Interior mode toggle
 bool interiorMode = false;
@@ -28,6 +28,9 @@ float fireOffset[5] = {0};
 // Snowflake structure
 struct Snowflake { float x, y, size; };
 std::vector<Snowflake> snowflakes;
+
+// Menu state
+bool menuActive = true;
 
 // Draw rectangle utility
 void drawRectangle(float x, float y, float w, float h, float r, float g, float b){
@@ -62,6 +65,14 @@ void drawCircle(float cx,float cy,float r,int segments,float cr,float cg,float c
     glEnd();
 }
 
+// Draw text
+void drawText(float x, float y, const char* text){
+    glColor3f(0,0,0);
+    glRasterPos2f(x,y);
+    for(int i=0;text[i];i++)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18,text[i]);
+}
+
 // Draw sun with parabolic movement
 void drawSun(float x) {
     float h = WINDOW_WIDTH/2.0f;
@@ -69,10 +80,8 @@ void drawSun(float x) {
     float a = -0.0015f;
     float y = a*(x - h)*(x - h) + k;
 
-    // Sun circle
     drawCircle(x, y, 50, 60, 1.0f, 0.9f, 0.0f);
 
-    // Sun rays
     for (int i = 0; i < 12; i++) {
         float ang = i * (2 * M_PI / 12);
         float x1 = x + cos(ang) * 60;
@@ -93,7 +102,7 @@ void drawCloud(float x, float y) {
     drawCircle(x, y+15, 28, 20, 1,1,1);
 }
 
-// Draw flower
+// Draw a flower
 void drawFlower(float x,float y){
     float petalR=10;
     drawCircle(x, y+petalR, petalR, 20, 1,0.6f,0.8f);
@@ -129,12 +138,11 @@ void drawFire(float x, float y, float offset){
     drawTriangle(x-10, y+35, x+10, y+35, x, y+65 + offset, 1.0f,0.9f,0.0f);
 }
 
-// Draw a Bowl
+// Draw a bowl
 void drawBowl(float cx, float cy, float radius, float r, float g, float b) {
-    // Bowl base (upward half-circle)
     glColor3f(r, g, b);
     glBegin(GL_TRIANGLE_FAN);
-        glVertex2f(cx, cy); // center top
+        glVertex2f(cx, cy);
         for(int i=0; i<=20; i++){
             float ang = M_PI * i / 20.0f;
             glVertex2f(cx + cos(ang)*radius, cy - sin(ang)*radius);
@@ -142,46 +150,94 @@ void drawBowl(float cx, float cy, float radius, float r, float g, float b) {
     glEnd();
 }
 
-// Draw the interior house scene
+// Draw interior house scene
 void drawInteriorScene() {
     // Walls and floor
     drawRectangle(0, 80, WINDOW_WIDTH, WINDOW_HEIGHT-80, 0.98f, 0.76f, 0.29f);
     drawRectangle(0, 0, WINDOW_WIDTH, 80, 0.55f, 0.27f, 0.07f);
 
     // Table
-    drawRectangle(260, 140, 400, 20, 0.55f,0.27f,0.07f); // top
-    drawRectangle(280, 80, 20, 60, 0.55f,0.27f,0.07f);   // left leg
-    drawRectangle(620, 80, 20, 60, 0.55f,0.27f,0.07f);   // right leg
+    drawRectangle(260, 140, 400, 20, 0.55f,0.27f,0.07f);
+    drawRectangle(280, 80, 20, 60, 0.55f,0.27f,0.07f);
+    drawRectangle(620, 80, 20, 60, 0.55f,0.27f,0.07f);
 
     // Bowls on table
-    drawBowl(320, 180, 20, 1.0f, 0.0f, 0.0f); // red
-    drawBowl(450, 180, 20, 0.0f, 0.0f, 1.0f); // blue
-    drawBowl(580, 180, 20, 0.0f, 1.0f, 0.0f); // green
+    drawBowl(320, 180, 20, 1.0f, 0.0f, 0.0f);
+    drawBowl(450, 180, 20, 0.0f, 0.0f, 1.0f);
+    drawBowl(580, 180, 20, 0.0f, 1.0f, 0.0f);
+    
+    // Interior Text
+    glColor3f(0,0,0);
+    glRasterPos2f(420,30);
+    const char *text = "Interior";
+    for(int i=0;text[i];i++)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18,text[i]);
+}
+
+// Draw menu screen with spring background
+void drawMenu() {
+    // Draw spring sky and ground
+    drawRectangle(0,120,WINDOW_WIDTH,480,0.46f,0.92f,0.96f); // sky
+    drawRectangle(0,0,WINDOW_WIDTH,120,0.0f,0.75f,0.29f);   // ground
+
+    // Clouds
+    drawCloud(cloudX[0], 500);
+    drawCloud(cloudX[1], 550);
+
+    // House
+    drawRectangle(120,120,150,120,0.98f,0.76f,0.29f);
+    drawTriangle(120,240,270,240,195,300,0.45f,0.17f,0.02f);
+    drawRectangle(180,120,40,70,0.05f,0.05f,0.05f);
+
+    // Trees
+    drawTree(600,120, true, false, false);
+    drawTree(700,120, true, false, false);
+    drawTree(800,120, true, false, false);
+
+    // Overlay menu buttons
+    drawRectangle(350, 300, 200, 60, 1.0f, 0.0f, 0.0f);  // Play
+    drawText(425, 335, "PLAY");
+
+    drawRectangle(350, 200, 200, 60, 1.0f, 0.0f, 0.0f);  // Exit
+    drawText(425, 230, "EXIT");
+
+    drawText(335, 425, "Battle Through the Seasons"); // Title
 }
 
 // Display callback
 void display(){
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if(interiorMode){
+    if(menuActive){
+        drawMenu();
+    }
+    else if(interiorMode){
         drawInteriorScene();
-    } else {
-        // Draw outdoor scene depending on season
-        if(currentSeason == 0){ drawRectangle(0,120,WINDOW_WIDTH,480,0.46f,0.92f,0.96f); drawSun(sunX); drawRectangle(0,0,WINDOW_WIDTH,120,0.0f,0.75f,0.29f); }
-        else if(currentSeason == 1){ drawRectangle(0,120,WINDOW_WIDTH,480,0.46f,0.92f,0.96f); drawSun(sunX); drawRectangle(0,0,WINDOW_WIDTH,120,0.0f,0.75f,0.29f); }
-        else if(currentSeason == 2){ drawRectangle(0,120,WINDOW_WIDTH,480,0.45f,0.65f,1.0f); drawSun(sunX); drawRectangle(0,0,WINDOW_WIDTH,120,0.98f,0.75f,0.35f); }
-        else if(currentSeason == 3){ drawRectangle(0,120,WINDOW_WIDTH,480,0.8f,0.9f,1.0f); drawSun(sunX); drawRectangle(0,0,WINDOW_WIDTH,120,1.0f,1.0f,1.0f); }
+    }
+    else{
+        // Background sky and ground depending on season
+        if(currentSeason == 0) drawRectangle(0,120,WINDOW_WIDTH,480,0.46f,0.92f,0.96f);
+        else if(currentSeason == 1) drawRectangle(0,120,WINDOW_WIDTH,480,0.46f,0.92f,0.96f);
+        else if(currentSeason == 2) drawRectangle(0,120,WINDOW_WIDTH,480,0.45f,0.65f,1.0f);
+        else drawRectangle(0,120,WINDOW_WIDTH,480,0.8f,0.9f,1.0f);
+
+        drawSun(sunX);
+
+        if(currentSeason == 0 || currentSeason == 1) drawRectangle(0,0,WINDOW_WIDTH,120,0.0f,0.75f,0.29f);
+        else if(currentSeason == 2) drawRectangle(0,0,WINDOW_WIDTH,120,0.98f,0.75f,0.35f);
+        else drawRectangle(0,0,WINDOW_WIDTH,120,1.0f,1.0f,1.0f);
 
         // Clouds
         drawCloud(cloudX[0], 500);
         drawCloud(cloudX[1], 550);
         drawCloud(cloudX[2], 480);
 
-        // House and fire
+        // House
         drawRectangle(120,120,150,120,0.98f,0.76f,0.29f);
         drawTriangle(120,240,270,240,195,300,0.45f,0.17f,0.02f);
         drawRectangle(180,120,40,70,0.05f,0.05f,0.05f);
 
+        // Summer fire
         if(currentSeason == 1){
             drawFire(150,250, fireOffset[0]);
             drawFire(230,252, fireOffset[1]);
@@ -192,13 +248,14 @@ void display(){
         drawTree(700,120, currentSeason==0, currentSeason==2, currentSeason==3);
         drawTree(800,120, currentSeason==0, currentSeason==2, currentSeason==3);
 
+        // Extra fires near trees
         if(currentSeason == 1){
             drawFire(613,250, fireOffset[2]);
             drawFire(710,245, fireOffset[3]);
             drawFire(817,253, fireOffset[4]);
         }
 
-        // Snow
+        // Snow for winter
         if(currentSeason == 3){
             for(auto &s : snowflakes){
                 drawCircle(s.x, s.y, s.size, 10, 1,1,1);
@@ -208,7 +265,7 @@ void display(){
         // Season label
         glColor3f(0,0,0);
         glRasterPos2f(420,30);
-        const char *labels[] = {"Spring Time","Summer Time","Autumn","Winter"};
+        const char *labels[] = {"Spring","Summer","Autumn","Winter"};
         const char *text = labels[currentSeason];
         for(int i=0;text[i];i++)
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18,text[i]);
@@ -223,15 +280,33 @@ void keyboard(unsigned char key,int x,int y){
         currentSeason = (currentSeason + 1) % 4;
         glutPostRedisplay();
     }
-    if(key=='i'){ // toggle interior mode
+    if(key=='i'){
         interiorMode = !interiorMode;
         glutPostRedisplay();
     }
 }
 
+// Mouse input for menu
+void mouse(int button, int state, int x, int y){
+    if(menuActive && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){
+        y = WINDOW_HEIGHT - y; // invert Y
+
+        // Play button
+        if(x >= 350 && x <= 550 && y >= 300 && y <= 360){
+            menuActive = false;
+            glutPostRedisplay();
+        }
+
+        // Exit button
+        if(x >= 350 && x <= 550 && y >= 200 && y <= 260){
+            exit(0);
+        }
+    }
+}
+
 // Update loop for animation
 void update(int value){
-    if(!interiorMode){
+    if(!interiorMode && !menuActive){
         sunX += sunSpeed;
         if(sunX > WINDOW_WIDTH + 50) sunX = -50.0f;
 
@@ -278,10 +353,11 @@ int main(int argc,char**argv){
     glutInit(&argc,argv);
     glutInitDisplayMode(GLUT_DOUBLE|GLUT_RGB);
     glutInitWindowSize(WINDOW_WIDTH,WINDOW_HEIGHT);
-    glutCreateWindow("Four Seasons Scene with Interior and Bowls");
+    glutCreateWindow("Battle Through the Seasons");
     initGL();
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
+    glutMouseFunc(mouse);
     glutTimerFunc(0, update, 0);
     glutMainLoop();
     return 0;
